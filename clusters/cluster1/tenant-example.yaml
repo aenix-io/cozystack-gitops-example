@@ -124,6 +124,24 @@ spec:
         - name: kafka-service-clients-ca
           valuesKey: ca.key
           targetPath: secret.data.ca-key
+
+        # Here you can specify applications to deploy via FluxCD into tenant-cluster
+        #fluxSync:
+        #  values:
+        #    secret:
+        #      create: true
+        #      data:
+        #        password: token-string-here123
+        #        username: pat
+        #    gitRepository:
+        #      spec:
+        #        url: https://gitlab.com/example/infra.git
+        #        ref:
+        #          branch: main
+        #    kustomization:
+        #      spec:
+        #        path: clusters/tenant-example
+
         values:
           addons:
             certManager:

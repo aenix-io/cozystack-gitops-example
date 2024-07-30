@@ -25,7 +25,7 @@ spec:
 {{- if .copySecrets }}
 ---
 ### COPY SECRET TO TENANT CLUSTER:
-apiVersion: helm.toolkit.fluxcd.io/v2beta1
+apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
   name: kubernetes-{{ .name }}-copy-secrets
@@ -33,6 +33,12 @@ metadata:
 spec:
   targetNamespace: default
   storageNamespace: default
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
   chart:
     spec:
       chart: ./charts/secret
@@ -64,5 +70,51 @@ spec:
   dependsOn:
   - name: kubernetes-{{ .name }}
 {{- end }}
+{{- if .fluxSync }}
+---
+### COPY SECRET TO TENANT CLUSTER:
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kubernetes-{{ .name }}-deploy-application
+  namespace: {{ $.Values.namespace }}
+spec:
+  targetNamespace: default
+  storageNamespace: default
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  chart:
+    spec:
+      chart: flux2-sync
+      sourceRef:
+        kind: HelmRepository
+        name: fluxcd-community
+      version: '1.9.0'
+  interval: 1m0s
+  timeout: 5m0s
+  kubeConfig:
+    secretRef:
+      name: kubernetes-{{ .name }}-admin-kubeconfig
+      key: super-admin.conf
+  dependsOn:
+  - name: kubernetes-{{ .name }}
+  {{- with .fluxSync.values }}
+  values:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}
 
 {{- end }}
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: fluxcd-community
+  namespace: {{ $.Values.namespace }}
+spec:
+  interval: 5m0s
+  url: https://fluxcd-community.github.io/helm-charts
