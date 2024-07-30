@@ -1,0 +1,8 @@
+namespace: ""
+
+services:
+  postgres: []
+  rabbitmq: []
+  clickhouse: []
+  kafka: []
+  kubernetes: []

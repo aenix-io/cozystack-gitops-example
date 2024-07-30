@@ -1,0 +1,141 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  labels:
+    cozystack.io/ui: "true"
+  name: tenant-example
+  namespace: tenant-root
+spec:
+  chart:
+    spec:
+      chart: tenant
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: HelmRepository
+        name: cozystack-apps
+        namespace: cozy-public
+      version: '*'
+  interval: 1m0s
+  timeout: 5m0s
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    etcd: false
+    host: ""
+    ingress: false
+    monitoring: false
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: tenant-example-services
+  namespace: tenant-root
+spec:
+  chart:
+    spec:
+      chart: ./charts/staging
+      reconcileStrategy: Revision
+      sourceRef:
+        kind: GitRepository
+        name: infra-main
+        namespace: tenant-root
+      version: '*'
+  interval: 1m0s
+  timeout: 5m0s
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  values:
+    namespace: tenant-example
+    services:
+
+      postgres:
+      - name: service
+        values:
+          size: "50Gi"
+          databases:
+            database1:
+              roles:
+                admin:
+                  - "user1"
+            database2:
+              roles:
+                admin:
+                  - "user2"
+          users:
+            user1:
+              password: "user1"
+            user2:
+              password: "user2"
+
+      rabbitmq:
+      - name: service
+        values:
+          replicas: 1    
+
+      clickhouse:
+      - name: service
+        values:
+          replicas: 1
+          shards: 0
+          size: 10Gi
+          users:
+            user1:
+              password: user1
+            user2:
+              password: user2
+
+      kafka:
+      - name: service
+        values:
+          kafka:
+            replicas: 3
+            size: 10Gi
+          topics:
+            - config:
+                min.insync.replicas: 2
+              name: "Topic"
+              partitions: 1
+              replicationFactor: 3
+            - config:
+                min.insync.replicas: 2
+              name: "Another_Topic"
+              partitions: 1
+              replicationFactor: 3
+          zookeeper:
+            replicas: 3
+            size: 5Gi
+
+      kubernetes:
+      - name: service
+        # This allows to copy secrets from management to tenant cluster
+        # In this example 'ca.key' key of 'kafka-service-clients-ca' secret
+        # will be copied as 'ca-key' in secret with name 'secrets' in 'default' namespace
+        # of tenant cluster
+        copySecrets:
+        - name: kafka-service-clients-ca
+          valuesKey: ca.key
+          targetPath: secret.data.ca-key
+        values:
+          addons:
+            certManager:
+              enabled: true
+            fluxcd:
+              enabled: true
+          controlPlane:
+            replicas: 2
+          nodeGroups:
+            md0:
+              maxReplicas: 3
+              minReplicas: 0
+              resources:
+                cpu: 4
+                memory: 8192Mi
